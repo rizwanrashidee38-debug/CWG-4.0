@@ -1,1 +1,532 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commonwealth Chairman: Legacy Simulator</title>
+    <style>
+        :root {
+            --primary: #1e3a8a; --secondary: #fbbf24; --dark: #0f172a;
+            --panel: #1e293b; --light: #f8fafc; --success: #10b981;
+            --danger: #ef4444; --card-bg: #334155; --male: #3b82f6; --female: #ec4899;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, sans-serif; }
+        body { background-color: var(--dark); color: var(--light); padding: 15px; font-size: 14px; }
+        .container { max-width: 1200px; margin: 0 auto; background: var(--panel); padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border-top: 4px solid var(--secondary); }
+        h1, h2, h3, h4 { color: var(--secondary); margin-bottom: 12px; }
+        h1 { text-align: center; border-bottom: 1px solid #475569; padding-bottom: 15px; }
+        
+        .screen { display: none; animation: fadeIn 0.3s; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        button { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; text-transform: uppercase; font-size: 12px; }
+        button:hover { background: #2563eb; transform: translateY(-2px); }
+        button:disabled { background: #475569; cursor: not-allowed; transform: none; }
+        .btn-sim { background: #64748b; } .btn-sim:hover { background: #94a3b8; color: #000; }
+        .btn-success { background: var(--success); } .btn-success:hover { background: #059669; }
+        
+        input, select { width: 100%; padding: 10px; margin: 8px 0; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 14px; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        .card { background: var(--card-bg); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 15px; }
+        
+        /* Athlete Cards */
+        .athlete-card { background: #1e293b; border: 1px solid #475569; border-radius: 6px; padding: 10px; cursor: pointer; transition: 0.2s; position: relative; }
+        .athlete-card:hover { border-color: var(--secondary); }
+        .athlete-card.selected { border-color: var(--success); background: #064e3b; }
+        .gender-M { border-left: 4px solid var(--male); }
+        .gender-F { border-left: 4px solid var(--female); }
+        
+        .stat-row { display: flex; justify-content: space-between; font-size: 11px; margin-top: 4px; color: #cbd5e1; }
+        .stat-bar-bg { width: 100%; height: 4px; background: #0f172a; border-radius: 2px; margin-top: 2px; }
+        .stat-bar-fill { height: 100%; background: var(--secondary); border-radius: 2px; }
+
+        /* Tiles */
+        .tile-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 15px 0; }
+        .tile { background: #334155; height: 100px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: bold; border-radius: 10px; cursor: pointer; border: 2px dashed #64748b; transition: 0.3s; color: var(--secondary); }
+        .tile:hover { background: #475569; border-color: var(--secondary); transform: scale(1.05); }
+        .tile.revealed { background: var(--primary); color: white; border: 2px solid #000; pointer-events: none; transform: scale(1); }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 6px; overflow: hidden; font-size: 12px; }
+        th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #334155; }
+        th { background: #0f172a; color: var(--secondary); text-transform: uppercase; font-size: 11px; position: sticky; top: 0; z-index: 10; }
+        tr:hover { background: #334155; }
+        .table-wrap { height: 450px; overflow-y: auto; border: 1px solid #475569; border-radius: 6px; }
+
+        .medal-group { margin-bottom: 15px; background: #0f172a; border-radius: 6px; padding: 12px; border-left: 4px solid var(--secondary); }
+        .medal-badge { padding: 2px 5px; border-radius: 3px; font-weight: bold; font-size: 10px; }
+        .g-badge { background: #fbbf24; color: #000; } .s-badge { background: #94a3b8; color: #000; } .b-badge { background: #b45309; color: #fff; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 1. WELCOME SCREEN -->
+    <div id="screen-welcome" class="screen active">
+        <h1>🏆 Commonwealth Committee Chairman</h1>
+        <div class="card" style="text-align: center;">
+            <p><strong>50 Sports. 250 Events. 750 Medals.</strong> Command your athletes across generations based on your nation's Demographics and Economy. Cultural identities strictly maintained.</p>
+        </div>
+        <div class="grid-2">
+            <div><label>Chairman Name:</label><input type="text" id="chairman-name" placeholder="e.g., Lord Coe..."></div>
+            <div><label>Select Nation (50 Nations):</label><select id="country-select" onchange="previewCountry()"></select></div>
+        </div>
+        <div id="country-preview" class="card" style="border-left-color: var(--secondary);"></div>
+        <button onclick="inaugurate()" style="width: 100%; font-size: 1.1rem; padding: 15px;">Take Office</button>
+    </div>
+
+    <!-- 2. DRAFTING SCREEN -->
+    <div id="screen-draft" class="screen">
+        <h1 id="draft-title">National Selection Trials</h1>
+        <div class="grid-2">
+            <div class="card">
+                <h3>Logistics & Quota</h3>
+                <p>Based on Demographics: <strong id="draft-gdp-limit" style="color:var(--secondary);"></strong></p>
+                <p>Athletes Drafted: <strong id="draft-count">0</strong> / <span id="draft-max"></span></p>
+            </div>
+            <div class="card" id="draft-facility-status">
+                <h3>Training Facilities</h3>
+                <p id="facility-desc">Keep your roster optimized to avoid overcrowded camps.</p>
+                <p style="font-size: 1.5rem; font-weight: bold; color: var(--success);" id="facility-mod">1.0x Multiplier</p>
+            </div>
+        </div>
+        <button onclick="autoDraft()" style="margin-bottom: 10px; background: var(--secondary); color: #000;">Auto-Draft Best Team</button>
+        <div class="table-wrap" style="padding:10px; background:#0f172a; height: 350px;">
+            <div id="roster-grid" class="grid-5"></div>
+        </div>
+        <button onclick="finalizeDraft()" id="btn-finalize-draft" style="width: 100%; margin-top:15px; padding: 15px;" class="btn-success" disabled>Confirm Contingent & Start Games</button>
+    </div>
+
+    <!-- 3. DASHBOARD -->
+    <div id="screen-dashboard" class="screen">
+        <h1 id="dash-event-header"></h1>
+        <div class="grid-3">
+            <div class="card"><h4>Command</h4><p id="dash-chair" style="font-weight:bold;"></p><p id="dash-nation" style="color:var(--secondary);"></p></div>
+            <div class="card"><h4>Roster Stats</h4><p><strong id="dash-roster-size"></strong> Athletes Sent</p></div>
+            <div class="card"><h4>Facilities</h4><p id="dash-facility-name"></p><p style="color:var(--success); font-weight:bold;" id="dash-mod-display"></p></div>
+        </div>
+
+        <div class="grid-2">
+            <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h3 style="margin:0;">📅 250-Event Timetable</h3>
+                    <button class="btn-sim" onclick="simRemaining()" id="btn-sim-season">Sim All Remaining Events</button>
+                </div>
+                <div class="table-wrap">
+                    <table id="schedule-table">
+                        <thead><tr><th>Discipline</th><th>Actions</th></tr></thead>
+                        <tbody id="schedule-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h3 style="margin-bottom:10px;">🥇 Live Medal Tally</h3>
+                <div class="table-wrap">
+                    <table id="tally-table">
+                        <thead><tr><th>Nation</th><th>🥇</th><th>🥈</th><th>🥉</th><th>Total</th></tr></thead>
+                        <tbody id="tally-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div id="season-end-panel" class="card" style="display:none; text-align:center; margin-top:20px; border-color:var(--success);">
+            <h3>All 250 Events Concluded</h3>
+            <button onclick="showSeasonSummary()" class="btn-success" style="font-size:1.1rem; padding: 15px 30px;">View Full Season Summary</button>
+        </div>
+    </div>
+
+    <!-- 4. MINI GAME -->
+    <div id="screen-game" class="screen">
+        <h2 id="game-sport-title" style="text-align:center;"></h2>
+        <div class="grid-2">
+            <div class="card">
+                <h3>Execution</h3>
+                <p>Athlete: <strong id="game-athlete-name" style="color:var(--secondary);"></strong></p>
+                <p>Attempts: <span id="game-chances" style="font-weight:bold; font-size:1.2rem;">10</span></p>
+                <div style="width: 100%; background: #334155; height: 10px; border-radius: 5px; margin: 10px 0;"><div id="game-progress" style="background: var(--secondary); height: 100%; width: 0%; transition: 0.3s;"></div></div>
+                <p>Metric: <span id="game-score" style="font-size:1.5rem; font-weight:bold; color:var(--success);">0</span></p>
+            </div>
+            <div class="card">
+                <h3>Briefing & Feed</h3>
+                <p id="game-desc" style="color:#cbd5e1; font-size:0.85rem; margin-bottom:5px;"></p>
+                <div style="padding: 10px; background: #0f172a; border-radius: 4px; font-family: monospace; font-size: 11px; color: #94a3b8; height: 75px; overflow-y:auto;" id="live-feed"></div>
+            </div>
+        </div>
+        <div class="tile-container">
+            <div class="tile" onclick="pickTile(0)">?</div><div class="tile" onclick="pickTile(1)">?</div>
+            <div class="tile" onclick="pickTile(2)">?</div><div class="tile" onclick="pickTile(3)">?</div>
+        </div>
+    </div>
+
+    <!-- 5. RESULTS -->
+    <div id="screen-results" class="screen">
+        <h1 style="text-align:center;">Podium Standings</h1>
+        <h3 id="res-sport" style="text-align:center; color:#94a3b8;"></h3>
+        <div class="table-wrap" style="margin-top: 20px; height: auto; max-height: 400px;">
+            <table><thead><tr><th>Rank</th><th>Athlete (Nation)</th><th>Result</th><th>Medal</th></tr></thead><tbody id="res-body"></tbody></table>
+        </div>
+        <button onclick="returnToDash()" style="width:100%; margin-top:20px; padding:15px;">Return to Main Office</button>
+    </div>
+
+    <!-- 6. END OF SEASON SUMMARY -->
+    <div id="screen-summary" class="screen">
+        <h1 style="text-align:center;">Season Medalist Summary</h1>
+        <p style="text-align:center; margin-bottom: 20px; color:#cbd5e1;">A complete breakdown of all 750 medals awarded this cycle.</p>
+        <div id="summary-content" style="height: 60vh; overflow-y: auto; padding-right: 10px;"></div>
+        <button onclick="advanceSeason()" class="btn-success" style="width:100%; margin-top:20px; font-size:1.1rem; padding: 15px;">Advance to Next Season</button>
+    </div>
+</div>
+
+<script>
+// --- 1. CORE DATA & FIXED CULTURAL NAME POOLS ---
+// Names are heavily enforced. A generated athlete will strictly draw from ONE sub-pool.
+const NAME_POOLS = {
+    IND_H: { m: ["Rahul","Vikram","Arjun","Amit","Karan","Rohan","Sanjay","Vishal","Aarav","Vivaan"], f: ["Priya","Anjali","Kavya","Riya","Neha","Simran","Aarti","Pooja","Diya","Ishita"], l: ["Sharma","Patel","Singh","Das","Rao","Joshi","Verma","Kumar"] },
+    IND_M: { m: ["Mohammed","Imran","Zaid","Omar","Tariq","Ayaan","Kabir","Rizwan","Farhan","Zayn"], f: ["Fatima","Sana","Aisha","Zara","Zainab","Maryam","Amina","Halima","Sadia","Hira"], l: ["Khan","Ali","Sheikh","Rahman","Syed","Ansari","Mirza","Beg"] },
+    ANGLO: { m: ["James","William","Jack","Thomas","Oliver","Harry","George","Liam","Noah","Mason"], f: ["Emma","Olivia","Ava","Sophia","Isabella","Mia","Amelia","Chloe","Grace","Lily"], l: ["Smith","Jones","Taylor","Brown","Williams","Davies","Evans","Wilson","Johnson","Wright"] },
+    AFRICA: { m: ["Kwame","Kofi","Samuel","Joseph","Emmanuel","Chidi","Tunde","Moses","Obinna","Sunday"], f: ["Amina","Zainab","Ngozi","Fatou","Aisha","Grace","Joy","Blessing","Chioma","Halima"], l: ["Mensah","Adebayo","Osei","Diallo","Okafor","Kamau","Ndiaye","Traore","Moyo","Olu"] },
+    CARIB: { m: ["Usain","Kemar","Jason","Yohan","Asafa","Akeem","Andre","Oblique","Jevaughn","Kevon"], f: ["Shelly-Ann","Elaine","Shericka","Merlene","Veronica","Tanya","Briana","Natasha","Carmelita","Kerron"], l: ["Bolt","Roach","Holder","Blake","Powell","Gayle","Bravo","Russell","Narine","Thompson"] }
+};
+
+// 50 Commonwealth Nations with complex demographic ratios
+const RAW_NATIONS = [
+    { n: "India", g: 4, p: 5, r: 4, cults: [{p:'IND_H',w:0.8},{p:'IND_M',w:0.2}], b: 8.5 },
+    { n: "Pakistan", g: 2, p: 5, r: 3, cults: [{p:'IND_M',w:1.0}], b: 7.3 },
+    { n: "Bangladesh", g: 3, p: 5, r: 3, cults: [{p:'IND_M',w:0.9},{p:'IND_H',w:0.1}], b: 7.0 },
+    { n: "Australia", g: 5, p: 3, r: 5, cults: [{p:'ANGLO',w:1.0}], b: 9.6 },
+    { n: "England", g: 5, p: 4, r: 5, cults: [{p:'ANGLO',w:1.0}], b: 9.5 },
+    { n: "Canada", g: 5, p: 3, r: 5, cults: [{p:'ANGLO',w:1.0}], b: 8.8 },
+    { n: "Jamaica", g: 2, p: 1, r: 2, cults: [{p:'CARIB',w:1.0}], b: 9.3 },
+    { n: "South Africa", g: 3, p: 4, r: 4, cults: [{p:'AFRICA',w:0.7},{p:'ANGLO',w:0.3}], b: 8.5 },
+    { n: "Nigeria", g: 3, p: 5, r: 4, cults: [{p:'AFRICA',w:1.0}], b: 8.2 },
+    { n: "Kenya", g: 3, p: 3, r: 3, cults: [{p:'AFRICA',w:1.0}], b: 8.8 },
+    { n: "New Zealand", g: 4, p: 2, r: 4, cults: [{p:'ANGLO',w:1.0}], b: 8.7 },
+    { n: "Scotland", g: 4, p: 2, r: 4, cults: [{p:'ANGLO',w:1.0}], b: 8.3 },
+    { n: "Wales", g: 4, p: 2, r: 3, cults: [{p:'ANGLO',w:1.0}], b: 8.1 },
+    { n: "Malaysia", g: 4, p: 3, r: 4, cults: [{p:'IND_M',w:0.8},{p:'IND_H',w:0.2}], b: 8.0 }, // Approximating names
+    { n: "Singapore", g: 5, p: 2, r: 3, cults: [{p:'ANGLO',w:0.5},{p:'IND_H',w:0.5}], b: 8.1 },
+    { n: "Trinidad & Tobago", g: 4, p: 1, r: 4, cults: [{p:'CARIB',w:0.6},{p:'IND_H',w:0.4}], b: 8.0 },
+    { n: "Bahamas", g: 3, p: 1, r: 3, cults: [{p:'CARIB',w:1.0}], b: 8.4 },
+    { n: "Fiji", g: 2, p: 1, r: 2, cults: [{p:'CARIB',w:0.6},{p:'IND_H',w:0.4}], b: 7.8 },
+    { n: "Ghana", g: 3, p: 3, r: 3, cults: [{p:'AFRICA',w:1.0}], b: 7.5 },
+    { n: "Uganda", g: 1, p: 3, r: 3, cults: [{p:'AFRICA',w:1.0}], b: 7.6 },
+    { n: "Cyprus", g: 4, p: 1, r: 3, cults: [{p:'ANGLO',w:1.0}], b: 7.0 },
+    { n: "Maldives", g: 3, p: 1, r: 2, cults: [{p:'IND_M',w:1.0}], b: 6.2 },
+    { n: "Brunei", g: 4, p: 1, r: 4, cults: [{p:'IND_M',w:1.0}], b: 6.5 },
+    { n: "Sri Lanka", g: 2, p: 2, r: 2, cults: [{p:'IND_H',w:1.0}], b: 7.1 }
+];
+
+const fillerNations = ["Antigua", "Barbados", "Belize", "Botswana", "Cameroon", "Dominica", "Eswatini", "Gambia", "Grenada", "Guyana", "Kiribati", "Lesotho", "Malawi", "Malta", "Mauritius", "Mozambique", "Namibia", "Nauru", "Papua NG", "Rwanda", "St Kitts", "St Lucia", "St Vincent", "Samoa", "Seychelles", "Sierra Leone", "Tanzania", "Zambia"];
+while(RAW_NATIONS.length < 50 && fillerNations.length > 0) {
+    let fn = fillerNations.shift();
+    let isAfrica = Math.random() > 0.5;
+    RAW_NATIONS.push({ n: fn, g: Math.floor(Math.random()*3)+1, p: Math.floor(Math.random()*3)+1, r: Math.floor(Math.random()*3)+1, cults: [{p: isAfrica ? 'AFRICA' : 'CARIB', w:1.0}], b: 6.0+(Math.random()*1.5) });
+}
+const NATIONS = RAW_NATIONS;
+
+const SEASONS = [ { y: 2010, h: "New Delhi (IND)" }, { y: 2014, h: "Glasgow (SCO)" }, { y: 2018, h: "Gold Coast (AUS)" }, { y: 2022, h: "Birmingham (ENG)" }, { y: 2026, h: "Victoria (AUS)" }, { y: 2030, h: "Hamilton (CAN)" } ];
+
+// --- 2. 50 SPORTS * 5 CATEGORIES = 250 EVENTS ---
+const BASE_50_SPORTS = [
+    "Athletics 100m", "Athletics 400m Hurdles", "Athletics Marathon", "Athletics Long Jump", "Athletics High Jump", 
+    "Athletics Javelin", "Athletics Shot Put", "Swimming 50m Free", "Swimming 100m Fly", "Swimming 200m Breast",
+    "Swimming 400m Medley", "Diving 10m Platform", "Diving 3m Springboard", "Cycling Track Sprint", "Cycling Track Pursuit",
+    "Cycling Road Race", "Cycling MTB", "Cycling BMX", "Gymnastics Artistic Floor", "Gymnastics Vault",
+    "Gymnastics Rhythmic", "Gymnastics Trampoline", "Weightlifting Snatch", "Weightlifting C&J", "Powerlifting",
+    "Boxing", "Judo", "Wrestling Freestyle", "Wrestling Greco-Roman", "Squash",
+    "Badminton", "Table Tennis", "Tennis", "Lawn Bowls", "Archery Recurve", 
+    "Archery Compound", "Shooting 10m Air Rifle", "Shooting 50m Pistol", "Shooting Skeet", "Triathlon",
+    "Rowing Single Sculls", "Canoe Sprint", "Canoe Slalom", "Sailing", "Beach Volleyball",
+    "Volleyball Indoor", "Basketball 3x3", "Hockey", "Rugby Sevens", "Cricket T20"
+];
+
+let SPORTS_DB = [];
+BASE_50_SPORTS.forEach(sp => {
+    let isTime = sp.includes("100m") || sp.includes("400m") || sp.includes("Marathon") || sp.includes("Swimming") || sp.includes("Cycling") || sp.includes("Triathlon") || sp.includes("Rowing") || sp.includes("Canoe");
+    
+    // 5 Categories
+    let cats = [ { c: "Men's A-Class", gen: 'M' }, { c: "Women's A-Class", gen: 'F' }, { c: "Men's B-Class", gen: 'M' }, { c: "Women's B-Class", gen: 'F' }, { c: "Mixed/Open Format", gen: 'X' } ];
+    cats.forEach(cat => SPORTS_DB.push({ n: `${sp} - ${cat.c}`, u: isTime ? "sec" : "pts", inv: isTime, gen: cat.gen }));
+});
+
+// --- 3. STATE & LOGIC ---
+let state = {
+    sIdx: 0, chair: "", country: null, draftPool: [], roster: [], maxRoster: 0,
+    facMod: 1.0, facName: "", tallyCur: {}, sched: [], medalists: {},
+    g: { ev: null, idx: -1, ch: 10, sc: 0, tiles: [], active: null }
+};
+
+function genName(cults, gen) {
+    // Pick culture based on weight
+    let rand = Math.random(), sum = 0, selectedPool = cults[0].p;
+    for(let c of cults) { sum += c.w; if(rand <= sum) { selectedPool = c.p; break; } }
+    
+    // Pick name strictly from that pool
+    let p = NAME_POOLS[selectedPool];
+    let fList = gen === 'M' ? p.m : p.f;
+    return `${fList[Math.floor(Math.random()*fList.length)]} ${p.l[Math.floor(Math.random()*p.l.length)]}`;
+}
+
+window.onload = () => {
+    let sel = document.getElementById("country-select");
+    NATIONS.sort((a,b)=>a.n.localeCompare(b.n)).forEach((n, i) => sel.innerHTML += `<option value="${i}">${n.n}</option>`);
+    previewCountry();
+};
+
+function switchUI(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(`screen-${id}`).classList.add('active'); }
+
+function previewCountry() {
+    let n = NATIONS[document.getElementById("country-select").value];
+    document.getElementById("country-preview").innerHTML = `
+        <strong>${n.n} Profile:</strong><br>
+        👥 Pop: ${"█".repeat(n.p)} (${n.p}) | 💰 GDP: ${"█".repeat(n.g)} (${n.g}) | ⚙️ Res: ${"█".repeat(n.r)} (${n.r})<br>
+        🏅 Base Genetic/System Talent: ${(n.b).toFixed(1)}/10
+    `;
+}
+
+function inaugurate() {
+    state.chair = document.getElementById("chairman-name").value || "Hon. Chairman";
+    state.country = NATIONS[document.getElementById("country-select").value];
+    startDraft();
+}
+
+function startDraft() {
+    let sea = SEASONS[state.sIdx];
+    document.getElementById("draft-title").innerHTML = `National Selection Trials<br><span style="font-size:16px; color:#cbd5e1;">Road to ${sea.y} ${sea.h}</span>`;
+    
+    // Massively scale roster size to handle 250 events
+    state.maxRoster = (state.country.p * 35) + (state.country.g * 25) + (state.country.r * 15);
+    let poolSize = state.maxRoster + 80; 
+    
+    state.draftPool = []; state.roster = [];
+    for(let i=0; i<poolSize; i++) {
+        let gender = Math.random() > 0.5 ? 'M' : 'F';
+        state.draftPool.push({
+            id: i, name: genName(state.country.cults, gender), gender: gender,
+            power: Math.floor(Math.random()*30) + (state.country.b * 7),
+            selected: false
+        });
+    }
+
+    document.getElementById("draft-max").textContent = state.maxRoster;
+    document.getElementById("draft-gdp-limit").textContent = `${state.maxRoster} Athlete Capacity`;
+    renderDraftGrid(); updateFacilityImpact(); switchUI("draft");
+}
+
+function renderDraftGrid() {
+    let grid = document.getElementById("roster-grid"); grid.innerHTML = "";
+    // Render only first 150 to save DOM memory, auto-draft handles the rest
+    state.draftPool.slice(0, 150).forEach(a => {
+        let div = document.createElement("div"); div.className = `athlete-card gender-${a.gender} ${a.selected ? 'selected' : ''}`;
+        div.onclick = () => toggleDraft(a.id);
+        div.innerHTML = `<div style="font-weight:bold; color:${a.selected ? '#fbbf24' : '#fff'}; margin-bottom:5px; font-size:10px;">${a.name} <span style="float:right;">${a.gender}</span></div>
+            <div class="stat-row"><span>Pwr</span><span>${a.power}</span></div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:${a.power}%"></div></div>`;
+        grid.appendChild(div);
+    });
+}
+
+function toggleDraft(id) {
+    let a = state.draftPool.find(x => x.id === id);
+    if(!a.selected && state.roster.length >= state.maxRoster + 20) return;
+    a.selected = !a.selected;
+    if(a.selected) state.roster.push(a); else state.roster = state.roster.filter(x => x.id !== id);
+    document.getElementById("draft-count").textContent = state.roster.length;
+    document.getElementById("btn-finalize-draft").disabled = state.roster.length === 0;
+    updateFacilityImpact(); renderDraftGrid();
+}
+
+function autoDraft() {
+    state.roster = []; state.draftPool.forEach(a => a.selected = false);
+    let sorted = [...state.draftPool].sort((a,b) => b.power - a.power);
+    for(let i=0; i<state.maxRoster; i++) { sorted[i].selected = true; state.roster.push(sorted[i]); }
+    document.getElementById("draft-count").textContent = state.roster.length;
+    document.getElementById("btn-finalize-draft").disabled = false;
+    updateFacilityImpact(); renderDraftGrid();
+}
+
+function updateFacilityImpact() {
+    let ratio = state.roster.length / state.maxRoster;
+    let desc = document.getElementById("facility-desc"); let mod = document.getElementById("facility-mod");
+    if(ratio > 1.1) { state.facName = "Overcrowded Camps"; state.facMod = 0.85; mod.style.color = "var(--danger)"; } 
+    else if(ratio < 0.7 && state.roster.length > 0) { state.facName = "Elite Hub"; state.facMod = 1.20; mod.style.color = "var(--success)"; } 
+    else { state.facName = "Standard Complex"; state.facMod = 1.00; mod.style.color = "var(--secondary)"; }
+    mod.textContent = `${state.facMod.toFixed(2)}x Yield Modifier`;
+}
+
+function finalizeDraft() {
+    let sea = SEASONS[state.sIdx];
+    document.getElementById("dash-event-header").textContent = `🏆 ${sea.y} Games - ${sea.h}`;
+    document.getElementById("dash-chair").textContent = `Chair: ${state.chair}`;
+    document.getElementById("dash-nation").textContent = state.country.n;
+    document.getElementById("dash-roster-size").textContent = state.roster.length;
+    document.getElementById("dash-facility-name").textContent = state.facName;
+    document.getElementById("dash-mod-display").textContent = `${state.facMod.toFixed(2)}x Yield`;
+
+    NATIONS.forEach(n => { state.tallyCur[n.n] = {g:0, s:0, b:0}; state.medalists[n.n] = []; });
+    state.sched = SPORTS_DB.map(s => ({...s, done: false}));
+    document.getElementById("season-end-panel").style.display = "none";
+    document.getElementById("btn-sim-season").style.display = "block";
+    renderSched(); renderTally(); switchUI("dashboard");
+}
+
+function renderSched() {
+    let tb = document.getElementById("schedule-body"); tb.innerHTML = ""; let allDone = true;
+    
+    // To prevent massive DOM lag, we render events incrementally or as a massive block using innerHTML string mapping
+    let htmlString = "";
+    state.sched.forEach((ev, i) => {
+        let btn = ev.done ? `<span style="color:var(--success); font-weight:bold;">COMPLETED</span>` 
+            : `<button onclick="startEvent(${i})" style="padding:4px 8px; font-size:10px;">Play</button> <button class="btn-sim" style="padding:4px 8px; font-size:10px;" onclick="autoSimEvent(${i}, true)">Sim</button>`;
+        htmlString += `<tr><td>${ev.n}</td><td style="display:flex; gap:5px;">${btn}</td></tr>`;
+        if(!ev.done) allDone = false;
+    });
+    tb.innerHTML = htmlString;
+
+    if(allDone) { document.getElementById("season-end-panel").style.display = "block"; document.getElementById("btn-sim-season").style.display = "none"; }
+}
+
+function getBestEligible(ev) {
+    let eligible = state.roster.filter(a => ev.gen === 'X' || a.gender === ev.gen);
+    return eligible.length > 0 ? eligible.sort((a,b)=>b.power-a.power)[0] : { name: `Unknown Reserve`, power: 45, gender: ev.gen };
+}
+
+function startEvent(idx) {
+    state.g.ev = state.sched[idx]; state.g.idx = idx; state.g.ch = 10; state.g.sc = 0; state.g.active = getBestEligible(state.g.ev);
+    document.getElementById("game-sport-title").textContent = state.g.ev.n;
+    document.getElementById("game-athlete-name").textContent = `${state.g.active.name} (Power: ${state.g.active.power})`;
+    document.getElementById("game-chances").textContent = "10"; document.getElementById("game-score").textContent = "0";
+    document.getElementById("game-progress").style.width = "0%"; document.getElementById("live-feed").innerHTML = "Ready.";
+    document.getElementById("game-desc").textContent = `Optimize ${state.g.ev.inv ? "Lowest Time" : "Highest Score"}.`;
+    rollTiles(); switchUI("game");
+}
+
+function rollTiles() {
+    let tiles = document.querySelectorAll(".tile"); state.g.tiles = []; let pwr = state.g.active.power / 10; 
+    tiles.forEach(t => {
+        t.classList.remove("revealed"); t.textContent = "?";
+        let r = (Math.random() * 4) + pwr;
+        let v = state.g.ev.inv ? (r / state.facMod) : (r * state.facMod);
+        state.g.tiles.push(parseFloat(Math.max(1, v + (Math.random()*2-1)).toFixed(2)));
+    });
+}
+
+function pickTile(idx) {
+    if(state.g.ch <= 0) return;
+    let v = state.g.tiles[idx]; state.g.sc += v; state.g.ch--;
+    let tiles = document.querySelectorAll(".tile");
+    tiles[idx].textContent = `${v}${state.g.ev.u}`; tiles[idx].classList.add("revealed");
+    document.getElementById("game-chances").textContent = state.g.ch; document.getElementById("game-score").textContent = state.g.sc.toFixed(2);
+    document.getElementById("game-progress").style.width = `${(10 - state.g.ch)*10}%`;
+    document.getElementById("live-feed").innerHTML += `<br>> Added: ${v} ${state.g.ev.u}`;
+    if(state.g.ch > 0) setTimeout(rollTiles, 300); else setTimeout(() => processResults(state.g.idx, state.g.active, state.g.sc, true), 800);
+}
+
+function autoSimEvent(idx, showUI) {
+    let ev = state.sched[idx]; let ath = getBestEligible(ev);
+    let pScore = 0; let pwr = ath.power / 10;
+    for(let i=0; i<10; i++) {
+        let r = (Math.random() * 4) + pwr; let v = ev.inv ? (r / state.facMod) : (r * state.facMod);
+        pScore += Math.max(1, v + (Math.random()*2-1));
+    }
+    processResults(idx, ath, pScore, showUI);
+}
+
+function simRemaining() {
+    // Process all 250 logic instantaneously without UI updates to prevent lag
+    state.sched.forEach((ev, i) => { if(!ev.done) autoSimEvent(i, false); });
+    renderSched(); renderTally();
+}
+
+function processResults(idx, ath, pScore, showUI) {
+    let ev = state.sched[idx];
+    let pool = [{ name: ath.name, nat: state.country.n, sc: pScore, isP: true }];
+    
+    let aiList = [...NATIONS].filter(n => n.n !== state.country.n).sort(() => 0.5 - Math.random()).slice(0, 9);
+    aiList.forEach(ai => {
+        let aiGen = ev.gen === 'X' ? (Math.random()>0.5?'M':'F') : ev.gen;
+        let aiName = genName(ai.cults, aiGen);
+        let gBoost = ai.g * 0.12; let sc = 0; let aiPwr = (Math.random() * 20 + ai.b * 7) / 10;
+        for(let i=0; i<10; i++) {
+            let r = (Math.random() * 4) + aiPwr;
+            let v = ev.inv ? (r / (1 + gBoost)) : (r * (1 + gBoost));
+            sc += Math.max(1, v + (Math.random()*2-1));
+        }
+        pool.push({ name: aiName, nat: ai.n, sc: parseFloat(sc.toFixed(2)), isP: false });
+    });
+
+    if(ev.inv) pool.sort((a,b) => a.sc - b.sc); else pool.sort((a,b) => b.sc - a.sc);
+
+    const medMap = ["🥇 Gold", "🥈 Silver", "🥉 Bronze"]; const medKey = ["g", "s", "b"];
+    for(let i=0; i<3; i++) {
+        let w = pool[i]; state.tallyCur[w.nat][medKey[i]]++;
+        state.medalists[w.nat].push({ athlete: w.name, event: ev.n, medal: medMap[i], type: medKey[i] });
+        w.m = medMap[i];
+    }
+    state.sched[idx].done = true;
+
+    if(showUI) {
+        document.getElementById("res-sport").textContent = ev.n;
+        let tb = document.getElementById("res-body"); tb.innerHTML = "";
+        pool.forEach((r, i) => {
+            let tr = document.createElement("tr"); if(r.isP) tr.style.background = "#064e3b";
+            tr.innerHTML = `<td>${i+1}</td><td><strong>${r.name}</strong><br><span style="font-size:10px;color:#94a3b8;">${r.nat}</span></td><td>${r.sc.toFixed(2)} ${ev.u}</td><td style="font-size:1.1rem;">${r.m || ""}</td>`;
+            tb.appendChild(tr);
+        });
+        switchUI("results");
+    }
+}
+
+function returnToDash() { renderSched(); renderTally(); switchUI("dashboard"); }
+
+function renderTally() {
+    let tb = document.getElementById("tally-body"); tb.innerHTML = "";
+    let arr = Object.keys(state.tallyCur).map(k => ({n: k, ...state.tallyCur[k]})).sort((a,b) => b.g !== a.g ? b.g - a.g : b.s !== a.s ? b.s - a.s : b.b - a.b);
+    let htmlString = "";
+    arr.forEach(r => {
+        let total = r.g + r.s + r.b; if(total === 0) return;
+        let bg = r.n === state.country.n ? "background:rgba(251, 191, 36, 0.1);" : "";
+        htmlString += `<tr style="${bg}"><td>${r.n}</td><td style="color:#fbbf24;font-weight:bold;">${r.g}</td><td style="color:#94a3b8;font-weight:bold;">${r.s}</td><td style="color:#b45309;font-weight:bold;">${r.b}</td><td style="font-weight:bold;">${total}</td></tr>`;
+    });
+    tb.innerHTML = htmlString;
+}
+
+// --- 6. END OF SEASON SUMMARY ---
+function showSeasonSummary() {
+    let content = document.getElementById("summary-content"); content.innerHTML = "";
+    let sortedNations = Object.keys(state.medalists).sort((a,b) => {
+        let aT = state.tallyCur[a], bT = state.tallyCur[b];
+        return bT.g !== aT.g ? bT.g - aT.g : bT.s !== aT.s ? bT.s - aT.s : bT.b - aT.b;
+    });
+
+    let html = "";
+    sortedNations.forEach(nation => {
+        let meds = state.medalists[nation]; if(meds.length === 0) return;
+        meds.sort((a,b) => { const rank = { "g": 1, "s": 2, "b": 3 }; return rank[a.type] - rank[b.type]; });
+        let t = state.tallyCur[nation];
+        
+        html += `<div class="medal-group"><h3 style="color:var(--secondary); margin-bottom: 10px;">${nation} <span style="font-size:12px; color:#cbd5e1; float:right;">🥇${t.g} 🥈${t.s} 🥉${t.b} (Total: ${t.g+t.s+t.b})</span></h3>
+            <table style="margin-top:0; background:transparent;">`;
+        meds.forEach(m => {
+            let badgeClass = m.type === 'g' ? 'g-badge' : m.type === 's' ? 's-badge' : 'b-badge';
+            html += `<tr><td style="width:20%; border-bottom:1px solid #475569;"><span class="medal-badge ${badgeClass}">${m.medal}</span></td>
+                     <td style="border-bottom:1px solid #475569; width:40%;"><strong>${m.athlete}</strong></td>
+                     <td style="border-bottom:1px solid #475569; color:#94a3b8;">${m.event}</td></tr>`;
+        });
+        html += `</table></div>`;
+    });
+    content.innerHTML = html; switchUI("summary");
+}
+
+function advanceSeason() {
+    if(state.sIdx < SEASONS.length - 1) { state.sIdx++; startDraft(); } 
+    else { alert("🏁 Legacy Complete! You have simulated the entire available Commonwealth timeline."); }
+}
+</script>
+</body>
+</html>
